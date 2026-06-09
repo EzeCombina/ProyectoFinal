@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <title>UWB Control Center | Tesis</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
+    <style>
+        body { background-color: #BBBFBF; }
+        .card { background: #ffffff; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        canvas { cursor: crosshair; touch-action: none; background-color: #ffffff; }
+        
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    </style>
+</head>
+<body class="text-slate-800 font-sans h-screen overflow-hidden flex flex-col bg-slate-50">
+
+    <header class="w-full p-3 border-b border-slate-300 flex justify-between items-center bg-white shadow-sm shrink-0">
+        <div class="flex items-center gap-3">
+            <div class="w-3 h-3 rounded-full bg-[#05AD98] animate-pulse"></div>
+            <h1 class="text-xl font-black tracking-wider uppercase text-[#05AD98]">Sistema de Navegación UWB</h1>
+        </div>
+        <div class="flex items-center gap-4">
+            <span id="status" class="px-3 py-1.5 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-300">DESCONECTADO</span>
+            <span class="text-slate-500 text-sm font-medium italic">UTN San Francisco</span>
+        </div>
+    </header>
+
+    <main class="flex flex-1 p-4 gap-4 min-h-0 overflow-hidden">
+        
+        <aside class="w-[340px] flex flex-col gap-3 overflow-y-auto pr-2 pb-2 shrink-0">
+            
+            <div class="card p-4 rounded-xl shrink-0">
+                <h2 class="text-xs font-black uppercase text-slate-500 mb-3 tracking-widest border-b border-slate-200 pb-2">Telemetría Real</h2>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-slate-100 p-3 rounded-lg border border-slate-300">
+                        <p class="text-[10px] font-bold text-[#05AD98] uppercase mb-1">Eje X</p>
+                        <p class="text-2xl font-mono font-bold"><span id="posX">0.00</span><span class="text-sm ml-1 text-slate-500">m</span></p>
+                    </div>
+                    <div class="bg-slate-100 p-3 rounded-lg border border-slate-300">
+                        <p class="text-[10px] font-bold text-[#05AD98] uppercase mb-1">Eje Y</p>
+                        <p class="text-2xl font-mono font-bold"><span id="posY">0.00</span><span class="text-sm ml-1 text-slate-500">m</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card p-4 rounded-xl shrink-0">
+                <h2 class="text-xs font-black uppercase text-slate-500 mb-3 tracking-widest border-b border-slate-200 pb-2">Área de Dominio</h2>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-slate-100 p-3 rounded-lg border border-slate-300">
+                        <p class="text-[10px] font-bold text-[#05AD98] uppercase mb-1">Ancho (X)</p>
+                        <p class="text-2xl font-mono font-bold"><span id="domX">0.00</span><span class="text-sm ml-1 text-slate-500">m</span></p>
+                    </div>
+                    <div class="bg-slate-100 p-3 rounded-lg border border-slate-300">
+                        <p class="text-[10px] font-bold text-[#05AD98] uppercase mb-1">Largo (Y)</p>
+                        <p class="text-2xl font-mono font-bold"><span id="domY">0.00</span><span class="text-sm ml-1 text-slate-500">m</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card p-4 rounded-xl border-l-8 border-[#05AD98] flex flex-col shrink-0">
+                <h2 class="text-xs font-black uppercase text-slate-500 mb-2 tracking-widest">Punto Objetivo (Goal)</h2>
+                <p class="text-sm mb-3 text-slate-600 font-medium">Haz clic en el mapa para definir el destino.</p>
+                <div class="flex justify-between font-mono text-xl mb-4 bg-slate-50 p-2 rounded border border-slate-200">
+                    <span>X: <b id="goalX" class="text-[#05AD98]">--</b></span>
+                    <span>Y: <b id="goalY" class="text-[#05AD98]">--</b></span>
+                </div>
+                
+                <button id="btnMover" disabled class="w-full py-3 bg-[#05AD98] hover:bg-[#048b7a] disabled:bg-slate-300 disabled:text-slate-500 text-white font-black rounded-lg transition-all shadow-sm uppercase text-xs tracking-widest mb-2">
+                    Moverse al Objetivo
+                </button>
+
+            </div>
+
+            <div class="flex flex-col gap-2 mt-auto">
+                <button id="btnCalibrar" class="w-full py-3 bg-[#05AD98] hover:bg-[#048b7a] disabled:bg-slate-300 disabled:text-slate-500 text-white font-black rounded-lg transition-all text-xs uppercase tracking-widest shadow-sm">
+                    Calibrar Sistema UWB
+                </button>
+                
+                <button id="btnCalibrarIMU" class="w-full py-3 bg-[#05AD98] hover:bg-[#048b7a] disabled:bg-slate-300 disabled:text-slate-500 text-white font-black rounded-lg transition-all text-xs uppercase tracking-widest shadow-sm">
+                    Calibrar Giroscopio (MPU)
+                </button>
+            </div>
+
+            <div class="card p-4 rounded-xl shrink-0 mt-2 border-l-8 border-[#05AD98]">
+                <h2 class="text-xs font-black uppercase text-slate-500 mb-2 tracking-widest border-b border-slate-200 pb-2 flex justify-between items-center">
+                    <span>Control Remoto Manual</span>
+                </h2>
+                <p class="text-sm mb-3 text-slate-600 font-medium">Mantén presionado para desplazar el chasis o usa el teclado.</p>
+                
+                <div class="max-h-[220px] overflow-y-auto pr-1 flex flex-col gap-2">
+                    
+                    <div class="grid grid-cols-3 gap-2">
+                        <div></div>
+                        <button id="btnFwd" class="py-3 bg-[#05AD98] text-white font-bold rounded-lg hover:bg-[#048b7a] active:scale-95 transition-all text-sm flex items-center justify-center shadow-sm">ᐃ</button>
+                        <div></div>
+                        
+                        <button id="btnLeft" class="py-3 bg-[#05AD98] text-white font-bold rounded-lg hover:bg-[#048b7a] active:scale-95 transition-all text-sm flex items-center justify-center shadow-sm">ᐊ</button>
+                        <button id="btnBwd" class="py-3 bg-[#05AD98] text-white font-bold rounded-lg hover:bg-[#048b7a] active:scale-95 transition-all text-sm flex items-center justify-center shadow-sm">ᐁ</button>
+                        <button id="btnRight" class="py-3 bg-[#05AD98] text-white font-bold rounded-lg hover:bg-[#048b7a] active:scale-95 transition-all text-sm flex items-center justify-center shadow-sm">ᐅ</button>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 mt-1">
+                        <button id="btnTurnLeft" class="py-2.5 border-2 border-[#05AD98] text-slate-500 font-black rounded-lg hover:bg-slate-200 active:scale-95 transition-all text-xs tracking-wider uppercase flex items-center justify-center gap-1">
+                            ↺ Giro Izq
+                        </button>
+                        <button id="btnTurnRight" class="py-2.5 border-2 border-[#05AD98] text-slate-500 font-black rounded-lg hover:bg-slate-200 active:scale-95 transition-all text-xs tracking-wider uppercase flex items-center justify-center gap-1">
+                            Giro Der ↻
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+
+        </aside>
+
+        <section class="flex-1 card rounded-xl relative flex items-center justify-center p-4 min-h-0 bg-slate-200/50">
+            <canvas id="radarCanvas" class="border-2 border-slate-300 rounded-lg shadow-md bg-white max-h-full max-w-full object-contain transition-all duration-300"></canvas>
+        </section>
+
+    </main>
+
+    <script>
+        var ros = new ROSLIB.Ros({ url : 'ws://100.121.191.29:9090' });
+
+        // --- SOLUCIÓN ERROR GOAL: Usar un publicador de tópico simple ---
+        var goalTopic = new ROSLIB.Topic({
+            ros : ros,
+            name : '/goal_pose',
+            messageType : 'geometry_msgs/PoseStamped'
+        });
+
+        // let maxDominioX = parseFloat(localStorage.getItem('domX')) || 5.45;
+        // let maxDominioY = parseFloat(localStorage.getItem('domY')) || 4.6;
+        // document.getElementById("domX").innerHTML = maxDominioX.toFixed(2);
+        // document.getElementById("domY").innerHTML = maxDominioY.toFixed(2);
+
+        // --- INICIALIZACIÓN DE DATOS Y MAPA ---
+        let maxDominioX = 5.0; // Valores por defecto por si falla el fetch
+        let maxDominioY = 4.0;
+
+        async function inicializarConfiguracion() {
+            try {
+                console.log("Intentando leer anchors_conf.json...");
+                const response = await fetch('anchors_conf.json');
+                if (!response.ok) throw new Error("No se pudo acceder al archivo JSON");
+                
+                const data = await response.json();
+                const coords = Object.values(data);
+                
+                // Calculamos los máximos reales del JSON
+                maxDominioX = Math.max(...coords.map(c => c[0]));
+                maxDominioY = Math.max(...coords.map(c => c[1]));
+                
+                console.log("Configuración cargada con éxito:", maxDominioX, "x", maxDominioY);
+            } catch (err) {
+                console.warn("Usando valores de respaldo (JSON no encontrado o error):", err);
+                maxDominioX = parseFloat(localStorage.getItem('domX')) || 5.0;
+                maxDominioY = parseFloat(localStorage.getItem('domY')) || 4.0;
+            } finally {
+                // Actualizamos la UI
+                document.getElementById("domX").innerHTML = maxDominioX.toFixed(2);
+                document.getElementById("domY").innerHTML = maxDominioY.toFixed(2);
+                
+                // Dibujamos el mapa inmediatamente
+                ajustarProporcionCanvas();
+                actualizarEscena();
+            }
+        }
+
+        // Ejecutamos la carga inicial
+        inicializarConfiguracion();
+
+        let targetGoal = null;
+        let posHistory = []; 
+        let currentPath = [];
+
+        const canvas = document.getElementById('radarCanvas');
+        const ctx = canvas.getContext('2d');
+        const statusDisp = document.getElementById("status");
+        const btnMover = document.getElementById("btnMover");
+        const btnCalibrar = document.getElementById("btnCalibrar");
+
+        ros.on('connection', () => {
+            statusDisp.innerHTML = "CONECTADO";
+            statusDisp.className = "px-3 py-1.5 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-300";
+        });
+
+        ros.on('error', () => { statusDisp.innerHTML = "ERROR DE CONEXIÓN"; });
+        ros.on('close', () => { statusDisp.innerHTML = "DESCONECTADO"; });
+
+        var domainListener = new ROSLIB.Topic({
+            ros : ros,
+            name : '/uwb/domain_size',
+            messageType : 'geometry_msgs/msg/Point'
+        });
+
+        domainListener.subscribe(function(msg) {
+            maxDominioX = msg.x > 0 ? msg.x : 1.0;
+            maxDominioY = msg.y > 0 ? msg.y : 1.0;
+            localStorage.setItem('domX', maxDominioX);
+            localStorage.setItem('domY', maxDominioY);
+            document.getElementById("domX").innerHTML = maxDominioX.toFixed(2);
+            document.getElementById("domY").innerHTML = maxDominioY.toFixed(2);
+            ajustarProporcionCanvas();
+            actualizarEscena();
+        });
+
+        var posListener = new ROSLIB.Topic({
+            ros : ros,
+            name : '/uwb/raw_position',
+            messageType : 'geometry_msgs/msg/PointStamped'
+        });
+
+        posListener.subscribe(function(msg) {
+            let x = msg.point.x;
+            let y = msg.point.y;
+            document.getElementById("posX").innerHTML = x.toFixed(2);
+            document.getElementById("posY").innerHTML = y.toFixed(2);
+            
+            posHistory.push({x, y});
+            if(posHistory.length > 5) posHistory.shift();
+            
+            actualizarEscena();
+        });
+
+        var pathListener = new ROSLIB.Topic({
+            ros : ros,
+            name : '/plan', 
+            messageType : 'nav_msgs/msg/Path'
+        });
+
+        pathListener.subscribe(function(msg) {
+            currentPath = msg.poses.map(p => ({
+                x: p.pose.position.x,
+                y: p.pose.position.y
+            }));
+            actualizarEscena(); 
+        });
+
+        function ajustarProporcionCanvas() {
+            const maxRes = 1000; 
+            if (maxDominioX >= maxDominioY) {
+                canvas.width = maxRes;
+                canvas.height = (maxDominioY / maxDominioX) * maxRes;
+            } else {
+                canvas.height = maxRes;
+                canvas.width = (maxDominioX / maxDominioY) * maxRes;
+            }
+        }
+
+        function actualizarEscena() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            dibujarGrilla();
+            dibujarRutaPlanificada();
+            
+            posHistory.forEach((pos, index) => {
+                let alpha = (index + 1) / posHistory.length;
+                dibujarPunto(pos.x, pos.y, `rgba(5, 173, 152, ${alpha * 0.5})`, 5); 
+            });
+
+            if(posHistory.length > 0) {
+                let last = posHistory[posHistory.length - 1];
+                dibujarPunto(last.x, last.y, '#05AD98', 10, true); 
+            }
+
+            if(targetGoal) {
+                dibujarTarget(targetGoal.x, targetGoal.y);
+            }
+        }
+
+        function dibujarGrilla() {
+            const step = 1.0; 
+            ctx.strokeStyle = '#cbd5e1'; 
+            ctx.lineWidth = 1;
+            ctx.font = "bold 14px sans-serif"; 
+            ctx.fillStyle = "#878787"; 
+
+            for(let x = 0; x <= maxDominioX; x += step) {
+                let px = (x / maxDominioX) * canvas.width;
+                ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, canvas.height); ctx.stroke();
+                ctx.fillText(x + "m", px + 6, canvas.height - 6);
+            }
+
+            for(let y = 0; y <= maxDominioY; y += step) {
+                let py = canvas.height - (y / maxDominioY) * canvas.height;
+                ctx.beginPath(); ctx.moveTo(0, py); ctx.lineTo(canvas.width, py); ctx.stroke();
+                if(y > 0) ctx.fillText(y + "m", 6, py - 6);
+            }
+        }
+
+        function dibujarPunto(x, y, color, radius, glow = false) {
+            let px = (x / maxDominioX) * canvas.width;
+            let py = canvas.height - (y / maxDominioY) * canvas.height;
+
+            if(glow) {
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = 'rgba(5, 173, 152, 0.5)';
+            }
+
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(px, py, radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0; 
+        }
+
+        function dibujarRutaPlanificada() {
+            if (currentPath.length < 2) return;
+
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(5, 173, 152, 0.4)'; 
+            ctx.lineWidth = 3;
+            ctx.setLineDash([5, 8]); 
+
+            let startPx = (currentPath[0].x / maxDominioX) * canvas.width;
+            let startPy = canvas.height - (currentPath[0].y / maxDominioY) * canvas.height;
+            ctx.moveTo(startPx, startPy);
+
+            for (let i = 1; i < currentPath.length; i++) {
+                let px = (currentPath[i].x / maxDominioX) * canvas.width;
+                let py = canvas.height - (currentPath[i].y / maxDominioY) * canvas.height;
+                ctx.lineTo(px, py);
+            }
+
+            ctx.stroke();
+            ctx.setLineDash([]); 
+        }
+
+        function dibujarTarget(x, y) {
+            let px = (x / maxDominioX) * canvas.width;
+            let py = canvas.height - (y / maxDominioY) * canvas.height;
+            
+            ctx.strokeStyle = '#05AD98'; 
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(px-10, py-10); ctx.lineTo(px+10, py+10);
+            ctx.moveTo(px+10, py-10); ctx.lineTo(px-10, py+10);
+            ctx.stroke();
+        }
+
+        canvas.addEventListener('mousedown', function(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            
+            const mouseX = (e.clientX - rect.left) * scaleX;
+            const mouseY = (e.clientY - rect.top) * scaleY;
+
+            let realX = (mouseX / canvas.width) * maxDominioX;
+            let realY = ((canvas.height - mouseY) / canvas.height) * maxDominioY;
+
+            targetGoal = { x: realX, y: realY };
+            document.getElementById("goalX").innerHTML = realX.toFixed(2);
+            document.getElementById("goalY").innerHTML = realY.toFixed(2);
+            
+            if(btnCalibrar.innerHTML !== "CALIBRANDO...") {
+                btnMover.disabled = false;
+            }
+            
+            actualizarEscena();
+        });
+
+        // --- SOLUCIÓN ERROR GOAL: Lógica actualizada de Mover ---
+        // 1. Nueva variable de estado global (ponela cerca de let targetGoal = null;)
+        let isMoving = false; 
+
+        // 2. Modificamos el evento del click en el mapa
+        canvas.addEventListener('mousedown', function(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            
+            const mouseX = (e.clientX - rect.left) * scaleX;
+            const mouseY = (e.clientY - rect.top) * scaleY;
+
+            let realX = (mouseX / canvas.width) * maxDominioX;
+            let realY = ((canvas.height - mouseY) / canvas.height) * maxDominioY;
+
+            targetGoal = { x: realX, y: realY };
+            document.getElementById("goalX").innerHTML = realX.toFixed(2);
+            document.getElementById("goalY").innerHTML = realY.toFixed(2);
+            
+            if(btnCalibrar.innerHTML !== "CALIBRANDO...") {
+                btnMover.disabled = false;
+                // Si marcamos un nuevo punto, nos aseguramos que el botón no diga Cancelar
+                if (!isMoving) {
+                    btnMover.innerHTML = "MOVERSE AL OBJETIVO";
+                }
+            }
+            actualizarEscena();
+        });
+
+        // 3. Lógica central del botón Mover / Cancelar
+        btnMover.onclick = function() {
+            if(!targetGoal) return;
+
+            if (!isMoving) {
+                // --- INICIAR MOVIMIENTO ---
+                isMoving = true;
+
+                btnCalibrar.disabled = true;
+                document.getElementById("btnCalibrarIMU").disabled = true;
+                
+                // Cambiamos el estilo del botón a Rojo (Cancelar)
+                btnMover.innerHTML = "CANCELAR MOVIMIENTO";
+                btnMover.classList.replace('bg-[#05AD98]', 'bg-red-600');
+                btnMover.classList.replace('hover:bg-[#048b7a]', 'hover:bg-red-700');
+
+                var poseMsg = new ROSLIB.Message({
+                    header: { frame_id: 'map', stamp: { secs: 0, nsecs: 0 } },
+                    pose: {
+                        position: { x: parseFloat(targetGoal.x), y: parseFloat(targetGoal.y), z: 0.0 },
+                        orientation: { x: 0.0, y: 0.0, z: 0.0, w: 1.0 }
+                    }
+                });
+                goalTopic.publish(poseMsg);
+            } else {
+                // --- CANCELAR MOVIMIENTO ---
+                // Para cancelar, le decimos a Nav2 que su nuevo objetivo es donde está parado ahora
+                var cancelMsg = new ROSLIB.Message({
+                    header: { frame_id: 'map', stamp: { secs: 0, nsecs: 0 } },
+                    pose: {
+                        position: { 
+                            x: parseFloat(document.getElementById("posX").innerText), 
+                            y: parseFloat(document.getElementById("posY").innerText), 
+                            z: 0.0 
+                        },
+                        orientation: { x: 0.0, y: 0.0, z: 0.0, w: 1.0 }
+                    }
+                });
+                goalTopic.publish(cancelMsg);
+                
+                // Limpiamos todo al cancelar
+                targetGoal = null;
+                document.getElementById("goalX").innerHTML = "--";
+                document.getElementById("goalY").innerHTML = "--";
+                btnMover.disabled = true;
+                resetMoverUI();
+            }
+        };
+
+        // 4. Nueva función para restaurar la UI (sin borrar el target ni la cruz)
+        function resetMoverUI() {
+            isMoving = false;
+            btnCalibrar.disabled = false;
+            document.getElementById("btnCalibrarIMU").disabled = false;
+            btnMover.innerHTML = "MOVERSE AL OBJETIVO";
+            btnMover.classList.replace('bg-red-600', 'bg-[#05AD98]');
+            btnMover.classList.replace('hover:bg-red-700', 'hover:bg-[#048b7a]');
+            currentPath = [];
+            actualizarEscena();
+        }
+
+        // 5. Automatización: Detectar cuándo el robot llega al objetivo para resetear el botón
+        // Buscá tu posListener.subscribe y agregale este bloque de código al final (justo antes de actualizarEscena):
+        posListener.subscribe(function(msg) {
+            let x = msg.point.x;
+            let y = msg.point.y;
+            document.getElementById("posX").innerHTML = x.toFixed(2);
+            document.getElementById("posY").innerHTML = y.toFixed(2);
+            
+            posHistory.push({x, y});
+            if(posHistory.length > 5) posHistory.shift();
+            
+            // --- NUEVO: Detección de llegada ---
+            if (isMoving && targetGoal) {
+                let dx = x - targetGoal.x;
+                let dy = y - targetGoal.y;
+                let distToGoal = Math.sqrt(dx*dx + dy*dy);
+                
+                // Si está a menos de 20cm del objetivo, asumimos que llegó (ajustalo según tu tolerancia de Nav2)
+                if (distToGoal < 0.10) {
+                    resetMoverUI();
+                    // Al llegar, NO borramos targetGoal, así la cruz se queda dibujada
+                }
+            }
+            // ------------------------------------
+
+            actualizarEscena();
+        });
+
+        var servicioCalibracion = new ROSLIB.Service({
+            ros : ros,
+            name : '/calibrate_uwb',
+            serviceType : 'std_srvs/srv/Trigger'
+        });
+
+        // Nos suscribimos al nuevo tópico de estado UWB
+        var uwbStatusListener = new ROSLIB.Topic({
+            ros : ros,
+            name : '/uwb/calibration_status',
+            messageType : 'std_msgs/msg/String'
+        });
+
+        uwbStatusListener.subscribe(function(msg) {
+            if (msg.data.startsWith("OK:")) {
+             let dimensiones = msg.data.split("Calibración OK: ")[1];
+                
+                alert("¡Dominio calibrado con éxito!\nDimensiones del área: " + dimensiones); 
+                
+                restaurarBotonCalibrar(); 
+            } else if (msg.data.startsWith("ERROR:")) {
+                let mensajeError = msg.data.split("ERROR:")[1];
+                alert("Fallo en calibración: " + mensajeError);
+                restaurarBotonCalibrar();
+            }
+        });
+
+        btnCalibrar.onclick = function() {
+            // 1. Bloquear botón de Mover
+            btnMover.disabled = true;
+            
+            // 2. Bloquear botón de Calibrar UWB
+            btnCalibrar.innerHTML = "CALIBRANDO UWB...";
+            btnCalibrar.disabled = true;
+            
+            // 3. Bloquear botón del IMU (Evita que se crucen los cables)
+            let btnIMU = document.getElementById("btnCalibrarIMU");
+            btnIMU.disabled = true;
+
+            console.log("Solicitando inicio de calibración UWB...");
+
+            servicioCalibracion.callService(
+                new ROSLIB.ServiceRequest({}), 
+                function(res) {
+                    if(res.success) {
+                        console.log("Raspberry aceptó el inicio. Recolectando muestras de fondo...");
+                    }
+                },
+                function(error) {
+                    console.error('Error al llamar al servicio UWB:', error);
+                    restaurarBotonCalibrar();
+                }
+            );
+        };
+
+        function restaurarBotonCalibrar() {
+            // 1. Restaurar botón UWB
+            btnCalibrar.innerHTML = "CALIBRAR SISTEMA UWB";
+            btnCalibrar.disabled = false;
+            
+            // 2. Restaurar botón IMU
+            let btnIMU = document.getElementById("btnCalibrarIMU");
+            btnIMU.disabled = false;
+                        
+            if(targetGoal) {
+                btnMover.disabled = false;
+            }
+        }
+
+        var srvCalibrarIMU = new ROSLIB.Service({
+            ros : ros,
+            name : '/calibrate_imu',
+            serviceType : 'std_srvs/srv/Trigger'
+        });
+
+        // NUEVO: Nos suscribimos al tópico de estado de la calibración
+        var imuStatusListener = new ROSLIB.Topic({
+            ros : ros,
+            name : '/imu/calibration_status',
+            messageType : 'std_msgs/msg/String'
+        });
+
+        let btnIMUGlobal = document.getElementById("btnCalibrarIMU");
+
+        imuStatusListener.subscribe(function(msg) {
+            if (msg.data === "OK") {
+                // ESTO SE DISPARA SÓLO CUANDO EL ESP32 TERMINA DE CALIBRAR REALMENTE
+                alert("IMU Calibrado con éxito");
+                
+                // Restauramos la interfaz
+                btnIMUGlobal.innerHTML = "Calibrar Giroscopio (MPU)";
+                btnIMUGlobal.disabled = false;
+                btnCalibrar.disabled = false;
+            }
+        });
+
+        // Evento del click del botón
+        btnIMUGlobal.onclick = function() {
+            let btnIMU = this;
+            btnIMU.innerHTML = "CALIBRANDO IMU... NO MOVER";
+            btnIMU.disabled = true;
+            btnCalibrar.disabled = true;
+            
+            console.log("Solicitando inicio de calibración...");
+
+            srvCalibrarIMU.callService(new ROSLIB.ServiceRequest({}), function(res) {
+                if(res.success) {
+                    console.log("Comando aceptado por la Raspberry. Esperando confirmación por tópico...");
+                } else {
+                    alert("No se pudo iniciar: " + res.message);
+                    btnIMU.innerHTML = "Calibrar Giroscopio (MPU)";
+                    btnIMU.disabled = false;
+                    btnCalibrar.disabled = false;
+                }
+            }, function(err) {
+                console.error("Error al llamar servicio IMU:", err);
+                btnIMU.innerHTML = "Calibrar Giroscopio (MPU)";
+                btnIMU.disabled = false;
+                btnCalibrar.disabled = false;
+            });
+        };
+
+        var manualVelTopic = new ROSLIB.Topic({
+            ros : ros,
+            name : '/cmd_vel_teleop',
+            messageType : 'geometry_msgs/Twist'
+        });
+
+        // Función encargada de estructurar y enviar el comando Twist
+        function enviarVelocidad(vx, vy, wz) {
+            // Si Nav2 está activo, forzamos la parada de la ruta autónoma primero
+            if (isMoving) {
+                btnMover.click(); 
+            }
+
+            var twist = new ROSLIB.Message({
+                linear: { x: parseFloat(vx), y: parseFloat(vy), z: 0.0 },
+                angular: { x: 0.0, y: 0.0, z: parseFloat(wz) }
+            });
+            
+            manualVelTopic.publish(twist);
+        }
+
+        // Mapeo de eventos de teclado (Flechas de dirección)
+        window.addEventListener("keydown", function(e) {
+            if (e.repeat) return; // Evita el bucle de repetición del sistema operativo
+            
+            switch(e.key) {
+                case "ArrowUp":    enviarVelocidad(0.2, 0.0, 0.0);  break; // Avanzar
+                case "ArrowDown":  enviarVelocidad(-0.2, 0.0, 0.0); break; // Retroceder
+                case "ArrowLeft":  enviarVelocidad(0.0, 0.3, 0.0);  break; // Strafe Izquierda
+                case "ArrowRight": enviarVelocidad(0.0, -0.3, 0.0); break; // Strafe Derecha
+                case "q":          enviarVelocidad(0.0, 0.0, 0.3);  break; // Giro Antihorario
+                case "e":          enviarVelocidad(0.0, 0.0, -0.3); break; // Giro Horario
+            }
+        });
+
+        window.addEventListener("keyup", function(e) {
+            // Al soltar cualquier tecla de control, mandamos frenar al robot inmediatamente
+            if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "q", "e"].includes(e.key)) {
+                enviarVelocidad(0.0, 0.0, 0.0);
+            }
+        });
+
+        const botonesControl = [
+            { id: "btnFwd",       vx: 0.2,  vy: 0.0,  wz: 0.0  }, // Adelante
+            { id: "btnBwd",       vx: -0.2, vy: 0.0,  wz: 0.0  }, // Atrás
+            { id: "btnLeft",      vx: 0.0,  vy: 0.3,  wz: 0.0  }, // Strafe Izquierda
+            { id: "btnRight",     vx: 0.0,  vy: -0.3, wz: 0.0  }, // Strafe Derecha
+            { id: "btnTurnLeft",  vx: 0.0,  vy: 0.0,  wz: 0.3  }, // Giro Antihorario
+            { id: "btnTurnRight", vx: 0.0,  vy: 0.0,  wz: -0.3 }  // Giro Horario
+        ];
+
+        botonesControl.forEach(control => {
+            const btn = document.getElementById(control.id);
+            if (btn) {
+                // Al presionar el botón en pantalla (Mouse o Pantalla Táctil)
+                btn.addEventListener("mousedown", () => {
+                    enviarVelocidad(control.vx, control.vy, control.wz);
+                });
+                btn.addEventListener("touchstart", (e) => {
+                    e.preventDefault(); // Evita comportamiento extraño en celulares
+                    enviarVelocidad(control.vx, control.vy, control.wz);
+                });
+
+                // Al soltar el botón o mover el cursor fuera de él, frena de inmediato
+                btn.addEventListener("mouseup", () => enviarVelocidad(0.0, 0.0, 0.0));
+                btn.addEventListener("mouseleave", () => enviarVelocidad(0.0, 0.0, 0.0));
+                btn.addEventListener("touchend", () => enviarVelocidad(0.0, 0.0, 0.0));
+            }
+        });
+
+        // Render inicial
+        // ajustarProporcionCanvas();
+        // actualizarEscena();
+
+    </script>
+</body>
+</html>
