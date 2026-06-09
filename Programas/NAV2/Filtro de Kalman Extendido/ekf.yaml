@@ -1,0 +1,50 @@
+ekf_filter_node:
+  ros__parameters:
+    frequency: 30.0
+    two_d_mode: true          # 2D 
+    publish_tf: true          
+    
+    # Configuración del árbol de coordenadas
+    map_frame: map
+    odom_frame: odom
+    base_link_frame: base_link
+    world_frame: odom         # El marco de referencia global para el EKF
+
+    # UWB 
+    pose0: /uwb/pose
+    pose0_config: [true,  true,  false,   # X, Y, Z
+                   false, false, false,   # Roll, Pitch, Yaw
+                   false, false, false,   # dX, dY, dZ (Velocidades lineales)
+                   false, false, false,   # dRoll, dPitch, dYaw
+                   false, false, false]   # Aceleraciones
+    pose0_differential: false
+
+    # IMU
+    imu0: /imu/data
+    imu0_config: [false, false, false,    
+                  false, false, true,     # Yaw absoluto
+                  false, false, false,    
+                  false, false, false,    
+                  false, false, false]
+    imu0_differential: false
+    imu0_relative: false                  # Requiere calibrar el IMU para comenzar con los movimientos del robot
+
+    predict_to_current_time: true
+    sensor_timeout: 0.2
+    
+    # Matriz de covarianza del proceso
+    process_noise_covariance: [0.90, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   # X
+                               0.0,  0.90, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   # Y
+                               0.0,  0.0,  0.06, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   # Z
+                               0.0,  0.0,  0.0,  0.03, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   # Roll
+                               0.0,  0.0,  0.0,  0.0,  0.03, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   # Pitch
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.75, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   # Yaw
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.5, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,    # dX
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.5, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,    # dY
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.04, 0.0,  0.0,  0.0,  0.0,  0.0,  0.0,   # dZ
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.01, 0.0,  0.0,  0.0,  0.0,  0.0,   # dRoll
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.01, 0.0,  0.0,  0.0,  0.0,   # dPitch
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.7, 0.0,  0.0,  0.0,    # dYaw
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.3, 0.0,  0.0,    # ddX
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.3, 0.0,    # ddY
+                               0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.0,  0.015] # ddZ
