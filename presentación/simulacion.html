@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador Cinemática Mecanum</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e1e;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: row;
+            gap: 50px;
+            background-color: #2d2d2d;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            max-width: 900px;
+            width: 100%;
+        }
+
+        .controls {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .slider-group label {
+            font-weight: bold;
+            color: #c2dcff;
+        }
+
+        .slider-group .value {
+            font-family: monospace;
+            font-size: 1.2em;
+            color: #4CAF50;
+        }
+
+        input[type=range] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .robot-view {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            min-height: 400px;
+        }
+
+        .chassis {
+            width: 160px;
+            height: 220px;
+            background-color: #444;
+            border: 2px solid #666;
+            border-radius: 10px;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .chassis::after {
+            content: "FRENTE";
+            position: absolute;
+            top: 10px;
+            font-size: 0.8em;
+            color: #888;
+            letter-spacing: 2px;
+        }
+
+        /* Indicadores visuales */
+        .vector-arrow {
+            position: absolute;
+            bottom: 50%;
+            left: calc(50% - 2px);
+            width: 4px;
+            background-color: #00ffcc;
+            transform-origin: bottom center;
+            z-index: 10;
+            border-radius: 2px;
+            transition: transform 0.1s ease-out, height 0.1s ease-out;
+            display: none;
+        }
+
+        .vector-arrow::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: -6px;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-bottom: 12px solid #00ffcc;
+        }
+
+        .rotation-indicator {
+            position: absolute;
+            font-size: 3rem;
+            color: #ffaa00;
+            font-weight: bold;
+            z-index: 5;
+            display: none;
+            opacity: 0.8;
+        }
+
+        .wheel-container {
+            position: absolute;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Posicionamiento corregido de las 4 ruedas */
+        .fl { top: 20px; left: -80px; flex-direction: row-reverse; }
+        .fr { top: 20px; right: -80px; }
+        .bl { bottom: 20px; left: -80px; flex-direction: row-reverse; }
+        .br { bottom: 20px; right: -80px; }
+
+        .wheel {
+            width: 24px;
+            height: 60px;
+            background: repeating-linear-gradient(
+                45deg,
+                #222,
+                #222 5px,
+                #111 5px,
+                #111 10px
+            );
+            border-radius: 4px;
+            border: 2px solid #000;
+            box-shadow: 0 0 5px rgba(0,0,0,0.8);
+        }
+
+        .fl .wheel, .br .wheel {
+            background: repeating-linear-gradient( 45deg, #222, #222 5px, #111 5px, #111 10px );
+        }
+        .fr .wheel, .bl .wheel {
+            background: repeating-linear-gradient( -45deg, #222, #222 5px, #111 5px, #111 10px );
+        }
+
+        .wheel-value {
+            font-family: monospace;
+            background-color: rgba(0,0,0,0.6);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .btn-reset {
+            background-color: #c2dcff;
+            color: #000;
+            border: none;
+            padding: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 10px;
+            transition: background-color 0.2s;
+        }
+
+        .btn-reset:hover {
+            background-color: #9bbbe8;
+        }
+
+        @keyframes spin-forward {
+            from { background-position: 0 0; }
+            to { background-position: 0 20px; }
+        }
+        @keyframes spin-backward {
+            from { background-position: 0 0; }
+            to { background-position: 0 -20px; }
+        }
+        @keyframes rotate-cw {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        @keyframes rotate-ccw {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(-360deg); }
+        }
+
+    </style>
+</head>
+<body>
+
+    <h2>Simulador de Cinemática - Chasis Mecanum</h2>
+
+    <div class="container">
+        <div class="controls">
+            <div class="slider-group">
+                <label>Velocidad Lineal X (Adelante/Atrás)</label>
+                <input type="range" id="vx" min="-1.0" max="1.0" step="0.1" value="0">
+                <span class="value" id="val_vx">0.0</span>
+            </div>
+
+            <div class="slider-group">
+                <label>Velocidad Lineal Y (Lateral)</label>
+                <input type="range" id="vy" min="-1.0" max="1.0" step="0.1" value="0">
+                <span class="value" id="val_vy">0.0</span>
+            </div>
+
+            <div class="slider-group">
+                <label>Velocidad Angular Z (Rotación)</label>
+                <input type="range" id="omega" min="-1.0" max="1.0" step="0.1" value="0">
+                <span class="value" id="val_omega">0.0</span>
+            </div>
+
+            <button class="btn-reset" onclick="resetSliders()">Detener Robot (Reset)</button>
+        </div>
+
+        <div class="robot-view">
+            <div class="chassis">
+                
+                <div class="vector-arrow" id="vector-arrow"></div>
+                <div class="rotation-indicator" id="rotation-indicator">↻</div>
+
+                <div class="wheel-container fl">
+                    <div class="wheel" id="wheel_fl"></div>
+                    <span class="wheel-value" id="txt_fl">0.00 -</span>
+                </div>
+                <div class="wheel-container fr">
+                    <div class="wheel" id="wheel_fr"></div>
+                    <span class="wheel-value" id="txt_fr">0.00 -</span>
+                </div>
+                <div class="wheel-container bl">
+                    <div class="wheel" id="wheel_bl"></div>
+                    <span class="wheel-value" id="txt_bl">0.00 -</span>
+                </div>
+                <div class="wheel-container br">
+                    <div class="wheel" id="wheel_br"></div>
+                    <span class="wheel-value" id="txt_br">0.00 -</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const sliders = {
+            vx: document.getElementById('vx'),
+            vy: document.getElementById('vy'),
+            omega: document.getElementById('omega')
+        };
+
+        const values = {
+            vx: document.getElementById('val_vx'),
+            vy: document.getElementById('val_vy'),
+            omega: document.getElementById('val_omega')
+        };
+
+        const wheels = {
+            fl: { dom: document.getElementById('wheel_fl'), txt: document.getElementById('txt_fl') },
+            fr: { dom: document.getElementById('wheel_fr'), txt: document.getElementById('txt_fr') },
+            bl: { dom: document.getElementById('wheel_bl'), txt: document.getElementById('txt_bl') },
+            br: { dom: document.getElementById('wheel_br'), txt: document.getElementById('txt_br') }
+        };
+
+        const vectorArrow = document.getElementById('vector-arrow');
+        const rotationIndicator = document.getElementById('rotation-indicator');
+
+        function updateKinematics() {
+            const vx = parseFloat(sliders.vx.value);
+            const vy = parseFloat(sliders.vy.value);
+            const omega = parseFloat(sliders.omega.value);
+
+            values.vx.textContent = vx.toFixed(1);
+            values.vy.textContent = vy.toFixed(1);
+            values.omega.textContent = omega.toFixed(1);
+
+            let fl = vx - vy - omega;
+            let fr = vx + vy + omega;
+            let bl = vx + vy - omega;
+            let br = vx - vy + omega;
+
+            const max_speed = Math.max(Math.abs(fl), Math.abs(fr), Math.abs(bl), Math.abs(br));
+            if (max_speed > 1.0) {
+                fl /= max_speed;
+                fr /= max_speed;
+                bl /= max_speed;
+                br /= max_speed;
+            }
+
+            applyWheelState(wheels.fl, fl);
+            applyWheelState(wheels.fr, fr);
+            applyWheelState(wheels.bl, bl);
+            applyWheelState(wheels.br, br);
+
+            const magnitude = Math.sqrt(vx*vx + vy*vy);
+            if (magnitude > 0.05) {
+                vectorArrow.style.display = 'block';
+                const angleRad = Math.atan2(-vy, vx); 
+                const angleDeg = angleRad * (180 / Math.PI);
+                
+                const height = Math.min(magnitude * 80, 80);
+                
+                vectorArrow.style.height = `${height}px`;
+                vectorArrow.style.transform = `rotate(${angleDeg}deg)`;
+            } else {
+                vectorArrow.style.display = 'none';
+            }
+
+            if (Math.abs(omega) > 0.05) {
+                rotationIndicator.style.display = 'block';
+                if (omega > 0) {
+                    rotationIndicator.textContent = '↺';
+                    rotationIndicator.style.animation = 'rotate-ccw 2s linear infinite';
+                } else {
+                    rotationIndicator.textContent = '↻';
+                    rotationIndicator.style.animation = 'rotate-cw 2s linear infinite';
+                }
+            } else {
+                rotationIndicator.style.display = 'none';
+                rotationIndicator.style.animation = 'none';
+            }
+        }
+
+        function applyWheelState(wheelObj, speed) {
+            let arrowStr = '-';
+            if (speed > 0.01) {
+                wheelObj.txt.style.color = '#4CAF50';
+                arrowStr = '↑';
+            } else if (speed < -0.01) {
+                wheelObj.txt.style.color = '#f44336';
+                arrowStr = '↓';
+            } else {
+                wheelObj.txt.style.color = '#fff';
+                arrowStr = '-';
+            }
+
+            wheelObj.txt.textContent = `${speed.toFixed(2)} ${arrowStr}`;
+
+            if (Math.abs(speed) < 0.05) {
+                wheelObj.dom.style.animation = 'none';
+            } else {
+                const dir = speed > 0 ? 'spin-forward' : 'spin-backward';
+                const duration = Math.max(0.2, 1.5 - Math.abs(speed)); 
+                wheelObj.dom.style.animation = `${dir} ${duration}s linear infinite`;
+            }
+        }
+
+        function resetSliders() {
+            sliders.vx.value = 0;
+            sliders.vy.value = 0;
+            sliders.omega.value = 0;
+            updateKinematics();
+        }
+
+        sliders.vx.addEventListener('input', updateKinematics);
+        sliders.vy.addEventListener('input', updateKinematics);
+        sliders.omega.addEventListener('input', updateKinematics);
+
+        updateKinematics();
+    </script>
+</body>
+</html>
